@@ -136,12 +136,16 @@ def get_crt(account_key, csr, acme_dir, log=LOGGER, CA=DEFAULT_CA, disable_check
             wellknown_file.write(keyauthorization)
 
         # check that the file is in place
-        try:
-            wellknown_url = "http://{0}/.well-known/acme-challenge/{1}".format(domain, token)
-            assert(disable_check or _do_request(wellknown_url)[0] == keyauthorization)
-        except (AssertionError, ValueError) as e:
-            os.remove(wellknown_path)
-            raise ValueError("Wrote file to {0}, but couldn't download {1}: {2}".format(wellknown_path, wellknown_url, e))
+        while True:
+            try:
+                wellknown_url = "http://{0}/.well-known/acme-challenge/{1}".format(domain, token)
+                assert(disable_check or _do_request(wellknown_url)[0] == keyauthorization)
+            except (AssertionError, ValueError):
+                log.info("Waiting for challenge file...")
+                time.sleep(2)
+            else:
+                log.info("Challenge file found!")
+                break;
 
         # say the challenge is done
         _send_signed_request(challenge['url'], {}, "Error submitting challenges: {0}".format(domain))
